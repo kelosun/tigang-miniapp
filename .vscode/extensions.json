@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "dcloudio.uni-app",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "Vue.volar"
+  ]
+}

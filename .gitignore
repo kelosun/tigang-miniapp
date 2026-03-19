@@ -1,0 +1,25 @@
+node_modules/
+unpackage/
+dist/
+.DS_Store
+*.log
+.hbuilderx/
+.idea/
+*.swp
+*.swo
+*~
+
+# 云函数本地依赖
+src/cloudfunctions/*/node_modules/
+
+# 微信开发者工具
+.tea/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 临时文件
+*.tmp
+*.temp

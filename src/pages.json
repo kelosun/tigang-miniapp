@@ -1,0 +1,39 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^uni-(.*)": "@dcloudio/uni-components/lib/uni-$1/uni-$1.vue"
+    }
+  },
+  "pages": [
+    {
+      "path": "src/pages/index/index",
+      "style": {
+        "navigationBarTitleText": "提肛了",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "src/pages/train/train",
+      "style": {
+        "navigationBarTitleText": "开始训练",
+        "navigationBarBackgroundColor": "#4ECDC4",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "src/pages/profile/profile",
+      "style": {
+        "navigationBarTitleText": "个人中心",
+        "navigationBarBackgroundColor": "#4ECDC4",
+        "navigationBarTextStyle": "white"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "提肛了",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  }
+}

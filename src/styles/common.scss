@@ -1,0 +1,103 @@
+// 通用布局类
+.container {
+  padding: $spacing-lg;
+  min-height: 100vh;
+  background-color: $bg-color;
+}
+
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+// 卡片样式
+.card {
+  background-color: $card-bg;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  box-shadow: $shadow-md;
+  margin-bottom: $spacing-md;
+}
+
+// 按钮样式
+.btn-primary {
+  background: linear-gradient(135deg, $primary-color 0%, $primary-dark 100%);
+  color: $white;
+  border: none;
+  border-radius: $radius-full;
+  padding: $spacing-md $spacing-xl;
+  font-size: $font-md;
+  font-weight: 600;
+  box-shadow: $shadow-md;
+  transition: all $transition-normal;
+  
+  &:active {
+    transform: scale(0.98);
+    box-shadow: $shadow-sm;
+  }
+}
+
+.btn-secondary {
+  background-color: $white;
+  color: $primary-color;
+  border: 2rpx solid $primary-color;
+  border-radius: $radius-full;
+  padding: $spacing-md $spacing-xl;
+  font-size: $font-md;
+  font-weight: 600;
+  transition: all $transition-normal;
+  
+  &:active {
+    background-color: $gray-50;
+  }
+}
+
+// 文字样式
+.text-primary {
+  color: $text-primary;
+}
+
+.text-regular {
+  color: $text-regular;
+}
+
+.text-secondary {
+  color: $text-secondary;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-bold {
+  font-weight: 600;
+}
+
+// 间距工具
+.mt-sm { margin-top: $spacing-sm; }
+.mt-md { margin-top: $spacing-md; }
+.mt-lg { margin-top: $spacing-lg; }
+.mb-sm { margin-bottom: $spacing-sm; }
+.mb-md { margin-bottom: $spacing-md; }
+.mb-lg { margin-bottom: $spacing-lg; }
+.p-sm { padding: $spacing-sm; }
+.p-md { padding: $spacing-md; }
+.p-lg { padding: $spacing-lg; }
+
+// 安全区域
+.safe-area-bottom {
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}
