@@ -3,11 +3,18 @@ export default {
   onLaunch: function () {
     console.log('App Launch')
     // 初始化云开发环境
-    if (wx?.cloud) {
-      wx.cloud.init({
-        env: 'cloud1-2gpe6fvi07555d29', // 替换为你的云环境 ID
-        traceUser: true
-      })
+    if (typeof wx !== 'undefined' && wx.cloud) {
+      try {
+        wx.cloud.init({
+          env: 'cloud1-2gpe6fvi07555d29',
+          traceUser: true
+        })
+        console.log('云开发初始化成功')
+      } catch (err) {
+        console.error('云开发初始化失败:', err)
+      }
+    } else {
+      console.log('当前环境不支持云开发')
     }
   },
   onShow: function () {

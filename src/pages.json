@@ -7,14 +7,14 @@
   },
   "pages": [
     {
-      "path": "src/pages/index/index",
+      "path": "pages/index/index",
       "style": {
         "navigationBarTitleText": "提肛了",
         "navigationStyle": "custom"
       }
     },
     {
-      "path": "src/pages/train/train",
+      "path": "pages/train/train",
       "style": {
         "navigationBarTitleText": "开始训练",
         "navigationBarBackgroundColor": "#4ECDC4",
@@ -22,7 +22,7 @@
       }
     },
     {
-      "path": "src/pages/profile/profile",
+      "path": "pages/profile/profile",
       "style": {
         "navigationBarTitleText": "个人中心",
         "navigationBarBackgroundColor": "#4ECDC4",

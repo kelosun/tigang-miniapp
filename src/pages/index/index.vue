@@ -93,7 +93,7 @@ const formatDuration = (seconds: number) => {
 
 const selectMode = (mode: 'normal' | 'advanced' | 'king') => {
   uni.navigateTo({
-    url: `/src/pages/train/train?mode=${mode}`
+    url: `/pages/train/train?mode=${mode}`
   })
 }
 
@@ -111,7 +111,7 @@ const navigateToProfile = () => {
     })
   } else {
     uni.navigateTo({
-      url: '/src/pages/profile/profile'
+      url: '/pages/profile/profile'
     })
   }
 }
@@ -123,13 +123,20 @@ const handleLogin = async () => {
     uni.hideLoading()
     uni.showToast({
       title: '登录成功',
-      icon: 'success'
+      icon: 'success',
+      duration: 1500
     })
-  } catch (error) {
+    // 强制刷新页面数据
+    setTimeout(() => {
+      uni.pageScrollTo({ scrollTop: 0 })
+    }, 100)
+  } catch (error: any) {
     uni.hideLoading()
+    console.error('登录错误:', error)
     uni.showToast({
-      title: '登录失败',
-      icon: 'none'
+      title: error?.message || '登录失败',
+      icon: 'none',
+      duration: 2000
     })
   }
 }
@@ -144,24 +151,24 @@ const handleLogin = async () => {
 
 .header {
   background: linear-gradient(135deg, $primary-color 0%, $primary-dark 100%);
-  padding: $spacing-xl $spacing-lg $spacing-lg;
+  padding: calc(env(safe-area-inset-top) + 88rpx) $spacing-lg $spacing-md;
   border-radius: 0 0 $radius-xl $radius-xl;
   box-shadow: $shadow-lg;
-  margin-bottom: $spacing-lg;
+  margin-bottom: $spacing-md;
 }
 
 .user-info {
   display: flex;
   align-items: center;
-  margin-bottom: $spacing-lg;
+  margin-bottom: $spacing-md;
   cursor: pointer;
 }
 
 .avatar {
-  width: 100rpx;
-  height: 100rpx;
+  width: 80rpx;
+  height: 80rpx;
   border-radius: $radius-full;
-  border: 4rpx solid rgba(255, 255, 255, 0.8);
+  border: 3rpx solid rgba(255, 255, 255, 0.8);
   background-color: $white;
 }
 
@@ -172,15 +179,15 @@ const handleLogin = async () => {
 
 .user-name {
   display: block;
-  font-size: $font-lg;
+  font-size: $font-md;
   font-weight: 600;
   color: $white;
-  margin-bottom: $spacing-xs;
+  margin-bottom: 2rpx;
 }
 
 .user-status {
   display: block;
-  font-size: $font-sm;
+  font-size: $font-xs;
   color: rgba(255, 255, 255, 0.9);
 }
 
@@ -195,8 +202,8 @@ const handleLogin = async () => {
   align-items: center;
   justify-content: space-around;
   background-color: rgba(255, 255, 255, 0.2);
-  border-radius: $radius-lg;
-  padding: $spacing-md;
+  border-radius: $radius-md;
+  padding: $spacing-sm $spacing-md;
   backdrop-filter: blur(10rpx);
 }
 
@@ -208,22 +215,22 @@ const handleLogin = async () => {
 }
 
 .stat-value {
-  font-size: $font-2xl;
+  font-size: $font-xl;
   font-weight: 700;
   color: $white;
-  margin-bottom: $spacing-xs;
+  margin-bottom: 2rpx;
 }
 
 .stat-label {
-  font-size: $font-xs;
+  font-size: 20rpx;
   color: rgba(255, 255, 255, 0.8);
 }
 
 .stat-divider {
   width: 2rpx;
-  height: 60rpx;
+  height: 40rpx;
   background-color: rgba(255, 255, 255, 0.4);
-  margin: 0 $spacing-lg;
+  margin: 0 $spacing-md;
 }
 
 .modes-section {

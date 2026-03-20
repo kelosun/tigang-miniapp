@@ -38,15 +38,34 @@ export const useUserStore = defineStore('user', {
   actions: {
     async login() {
       try {
-        const { code } = await uni.login({ provider: 'weixin' })
+        if (!wx.cloud) {
+          throw new Error('云开发未初始化')
+        }
         
-        const result = await uni.cloud.callFunction({
-          name: 'login',
-          data: { code }
+        const { code } = await uni.login({ provider: 'weixin' })
+        console.log('微信登录 code:', code)
+        
+        const result: any = await new Promise((resolve, reject) => {
+          wx.cloud.callFunction({
+            name: 'login',
+            data: { code },
+            success: (res: any) => {
+              console.log('云函数调用成功:', res)
+              resolve(res)
+            },
+            fail: (err: any) => {
+              console.error('云函数调用失败:', err)
+              reject(err)
+            }
+          })
         })
         
-        if (result.result.success) {
+        console.log('云函数返回:', result)
+        
+        if (result.result?.success) {
           const userData = result.result.data
+          console.log('用户数据:', userData)
+          
           this.userInfo = {
             openid: userData.openid,
             nickName: userData.nickName || '提肛达人',
@@ -62,9 +81,14 @@ export const useUserStore = defineStore('user', {
           this.totalDuration = userData.totalDuration || 0
           this.streakDays = userData.streakDays || 0
           this.lastTrainDate = userData.lastTrainDate || null
+          
+          console.log('登录成功，用户信息:', this.userInfo)
+        } else {
+          console.error('登录失败:', result.result?.error)
+          throw new Error(result.result?.error || '登录失败')
         }
-      } catch (error) {
-        console.error('登录失败:', error)
+      } catch (error: any) {
+        console.error('登录异常:', error)
         throw error
       }
     },
@@ -100,14 +124,18 @@ export const useUserStore = defineStore('user', {
       if (!this.isLoggedIn) return
       
       try {
-        await uni.cloud.callFunction({
-          name: 'updateUserStats',
-          data: {
-            totalSessions: this.totalSessions,
-            totalDuration: this.totalDuration,
-            streakDays: this.streakDays,
-            lastTrainDate: this.lastTrainDate
-          }
+        await new Promise((resolve, reject) => {
+          wx.cloud.callFunction({
+            name: 'updateUserStats',
+            data: {
+              totalSessions: this.totalSessions,
+              totalDuration: this.totalDuration,
+              streakDays: this.streakDays,
+              lastTrainDate: this.lastTrainDate
+            },
+            success: resolve,
+            fail: reject
+          })
         })
       } catch (error) {
         console.error('同步数据失败:', error)

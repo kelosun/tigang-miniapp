@@ -105,37 +105,36 @@
     </view>
     
     <!-- 指导视频弹窗 -->
-    <uni-modal 
-      v-if="showGuideModal"
-      title="动作指导"
-      :show-cancel="false"
-      @confirm="showGuideModal = false"
-    >
-      <view class="guide-content">
-        <video 
-          class="guide-video"
-          src="/static/video/guide.mp4"
-          :controls="true"
-          :autoplay="true"
-          :loop="true"
-        />
-        <view class="guide-tips">
-          <text class="tip-item">✓ 保持自然呼吸，不要憋气</text>
-          <text class="tip-item">✓ 收缩时感受肌肉收紧</text>
-          <text class="tip-item">✓ 放松时完全放松肌肉</text>
-          <text class="tip-item">✓ 找到正确的肌肉群</text>
+    <view v-if="showGuideModal" class="modal-overlay" @click="showGuideModal = false">
+      <view class="modal-content" @click.stop>
+        <view class="modal-header">
+          <text class="modal-title">动作指导</text>
+          <text class="modal-close" @click="showGuideModal = false">✕</text>
+        </view>
+        <view class="modal-body">
+          <video 
+            class="guide-video"
+            src="/static/video/guide.mp4"
+            :controls="true"
+            :autoplay="true"
+            :loop="true"
+          />
+          <view class="guide-tips">
+            <text class="tip-item">✓ 保持自然呼吸，不要憋气</text>
+            <text class="tip-item">✓ 收缩时感受肌肉收紧</text>
+            <text class="tip-item">✓ 放松时完全放松肌肉</text>
+            <text class="tip-item">✓ 找到正确的肌肉群</text>
+          </view>
         </view>
       </view>
-    </uni-modal>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'uni-app/composables/router'
 import { useUserStore } from '@/store/user'
 
-const route = useRoute()
 const userStore = useUserStore()
 
 // 模式配置
@@ -162,7 +161,20 @@ const modeConfig = {
   }
 }
 
-const mode = (route.query.mode as 'normal' | 'advanced' | 'king') || 'normal'
+let timer: any = null
+let phaseTimer: any = null
+
+// 获取页面参数
+const getModeFromUrl = () => {
+  const pages = getCurrentPages()
+  if (pages.length > 0) {
+    const currentPage = pages[pages.length - 1] as any
+    return (currentPage.options?.mode as 'normal' | 'advanced' | 'king') || 'normal'
+  }
+  return 'normal'
+}
+
+const mode = getModeFromUrl()
 const modeInfo = modeConfig[mode]
 
 // 状态
@@ -173,10 +185,6 @@ const counter = ref(0)
 const elapsedTime = ref(0)
 const totalTime = ref(600) // 默认 10 分钟，单位秒
 const showGuideModal = ref(false)
-
-let timer: any = null
-let phaseTimer: any = null
-let tts: any = null
 
 // 计算属性
 const phaseText = computed(() => {
@@ -205,22 +213,13 @@ const buttStyle = computed(() => {
   }
 })
 
-// TTS 语音
+// 语音提示（使用 Toast 显示）
 const speak = (text: string) => {
-  if (tts) {
-    tts.speak({
-      text: text,
-      success: () => {},
-      fail: (err: any) => console.error('TTS 失败:', err)
-    })
-  } else {
-    // 降级方案：使用 uni.playVoice
-    uni.showToast({
-      title: text,
-      icon: 'none',
-      duration: 2000
-    })
-  }
+  uni.showToast({
+    title: text,
+    icon: 'none',
+    duration: 1500
+  })
 }
 
 // 相位循环
@@ -333,14 +332,9 @@ const formatTime = (ms: number) => {
 }
 
 // 生命周期
-onMounted(() => {
-  // 初始化 TTS
-  // @ts-ignore
-  if (uni.createInnerAudioContext) {
-    // 检查是否有 TTS 插件
-    // @ts-ignore
-    tts = uni.requireNativePlugin('tts')
-  }
+onUnmounted(() => {
+  clearInterval(timer)
+  clearInterval(phaseTimer)
 })
 
 onUnmounted(() => {
@@ -584,5 +578,53 @@ onUnmounted(() => {
 .tip-item {
   font-size: $font-sm;
   color: $text-regular;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: $white;
+  border-radius: $radius-lg;
+  width: 90%;
+  max-width: 600rpx;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: $shadow-xl;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-lg;
+  border-bottom: 1rpx solid $border-light;
+}
+
+.modal-title {
+  font-size: $font-lg;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.modal-close {
+  font-size: 40rpx;
+  color: $text-secondary;
+  cursor: pointer;
+  padding: $spacing-xs;
+}
+
+.modal-body {
+  padding: $spacing-lg;
 }
 </style>
