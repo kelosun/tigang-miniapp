@@ -2,10 +2,14 @@
   <view class="container">
     <!-- 顶部个人信息区 -->
     <view class="header" @click="navigateToProfile">
+      <view v-if="showProfileUpdatedTip" class="profile-updated-tip">
+        <text class="profile-updated-tip-text">资料已更新，首页展示的是你刚刚保存的头像和昵称</text>
+      </view>
+
       <view class="user-info">
-        <image 
-          class="avatar" 
-          :src="userStore.displayAvatar" 
+        <image
+          class="avatar"
+          :src="userStore.displayAvatar"
           mode="aspectFill"
         />
         <view class="user-details">
@@ -79,10 +83,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '@/store/user'
+import { needsProfileCompletion } from '@/utils/user-profile'
 
 const userStore = useUserStore()
+const hasPromptedProfileCompletion = ref(false)
+const showProfileUpdatedTip = ref(false)
 
 const formatDuration = (seconds: number) => {
   if (seconds < 60) return `${seconds}秒`
@@ -116,6 +124,27 @@ const navigateToProfile = () => {
   }
 }
 
+const promptProfileCompletion = () => {
+  if (!userStore.isLoggedIn || !needsProfileCompletion(userStore.userInfo) || hasPromptedProfileCompletion.value) {
+    return
+  }
+
+  hasPromptedProfileCompletion.value = true
+  uni.showModal({
+    title: '完善资料',
+    content: '当前显示的是默认资料，去“我的”页确认头像和昵称后，首页会显示你的专属信息。',
+    confirmText: '去完善',
+    cancelText: '稍后再说',
+    success: (res) => {
+      if (res.confirm) {
+        uni.navigateTo({
+          url: '/pages/profile/profile'
+        })
+      }
+    }
+  })
+}
+
 const handleLogin = async () => {
   try {
     uni.showLoading({ title: '登录中...' })
@@ -130,6 +159,9 @@ const handleLogin = async () => {
     setTimeout(() => {
       uni.pageScrollTo({ scrollTop: 0 })
     }, 100)
+    setTimeout(() => {
+      promptProfileCompletion()
+    }, 250)
   } catch (error: any) {
     uni.hideLoading()
     console.error('登录错误:', error)
@@ -140,6 +172,19 @@ const handleLogin = async () => {
     })
   }
 }
+
+onShow(() => {
+  const profileUpdated = uni.getStorageSync('profile_updated_once')
+  if (profileUpdated) {
+    uni.removeStorageSync('profile_updated_once')
+    showProfileUpdatedTip.value = true
+    setTimeout(() => {
+      showProfileUpdatedTip.value = false
+    }, 2500)
+  }
+
+  promptProfileCompletion()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -155,6 +200,21 @@ const handleLogin = async () => {
   border-radius: 0 0 $radius-xl $radius-xl;
   box-shadow: $shadow-lg;
   margin-bottom: $spacing-md;
+}
+
+.profile-updated-tip {
+  background-color: rgba(255, 255, 255, 0.18);
+  border: 2rpx solid rgba(255, 255, 255, 0.28);
+  border-radius: $radius-lg;
+  padding: $spacing-sm $spacing-md;
+  margin-bottom: $spacing-md;
+}
+
+.profile-updated-tip-text {
+  display: block;
+  font-size: $font-sm;
+  color: rgba(255, 255, 255, 0.96);
+  line-height: 1.5;
 }
 
 .user-info {
