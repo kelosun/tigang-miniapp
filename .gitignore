@@ -24,3 +24,5 @@ src/cloudfunctions/*/node_modules/
 # 临时文件
 *.tmp
 *.temp
+
+*.md

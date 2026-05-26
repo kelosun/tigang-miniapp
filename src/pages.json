@@ -17,16 +17,17 @@
       "path": "pages/train/train",
       "style": {
         "navigationBarTitleText": "开始训练",
-        "navigationBarBackgroundColor": "#4ECDC4",
-        "navigationBarTextStyle": "white"
+        "navigationBarBackgroundColor": "#FBFAF8",
+        "navigationBarTextStyle": "black",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/profile/profile",
       "style": {
         "navigationBarTitleText": "个人中心",
-        "navigationBarBackgroundColor": "#4ECDC4",
-        "navigationBarTextStyle": "white"
+        "navigationBarBackgroundColor": "#FBFAF8",
+        "navigationBarTextStyle": "black"
       }
     }
   ],

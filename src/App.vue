@@ -5,10 +5,13 @@ export default {
     // 初始化云开发环境
     if (typeof wx !== 'undefined' && wx.cloud) {
       try {
-        wx.cloud.init({
-          env: 'cloud1-2gpe6fvi07555d29',
+        const cloudOptions = {
           traceUser: true
-        })
+        }
+        if (wx.cloud.DYNAMIC_CURRENT_ENV) {
+          cloudOptions.env = wx.cloud.DYNAMIC_CURRENT_ENV
+        }
+        wx.cloud.init(cloudOptions)
         console.log('云开发初始化成功')
       } catch (err) {
         console.error('云开发初始化失败:', err)
