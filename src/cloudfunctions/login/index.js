@@ -1,87 +1,80 @@
-const cloud = require('wx-server-sdk')
-
+const cloud = require("wx-server-sdk");
 cloud.init({
-  env: cloud.DYNAMIC_CURRENT_ENV
-})
-
-const db = cloud.database()
-
+  env: cloud.DYNAMIC_CURRENT_ENV,
+});
+const db = cloud.database();
 exports.main = async (event, context) => {
-  const wxContext = cloud.getWXContext()
-  const { code } = event
-  
+  const wxContext = cloud.getWXContext();
+  const openid = wxContext.OPENID;
+
+  console.log("用户登录，openid:", openid);
+
   try {
-    const res = await cloud.openapi.auth.code2Session({
-      appid: process.env.APPID,
-      js_code: code,
-      grant_type: 'authorization_code',
-      secret: process.env.SECRET
-    })
-    
-    const { openid, session_key, unionid } = res
-    
-    const userResult = await db.collection('users').where({
-      openid: openid
-    }).get()
-    
-    let userData
-    
-    if (userResult.data.length > 0) {
-      userData = userResult.data[0]
-      await db.collection('users').doc(userData._id).update({
-        data: {
-          lastLoginTime: db.serverDate()
-        }
+    const users = db.collection("users");
+    const queryResult = await users
+      .where({
+        openid: openid,
       })
-    } else {
-      const result = await db.collection('users').add({
+      .get();
+
+    if (queryResult.data.length > 0) {
+      // 老用户：更新登录时间
+      await users.doc(queryResult.data[0]._id).update({
         data: {
-          openid,
-          unionid,
-          session_key,
-          nickName: '提肛达人',
-          avatarUrl: '',
+          lastLoginTime: db.serverDate(),
+        },
+      });
+
+      console.log("老用户登录成功");
+
+      return {
+        success: true,
+        data: queryResult.data[0],
+        message: "登录成功",
+      };
+    } else {
+      // 新用户：创建记录
+      const result = await users.add({
+        data: {
+          openid: openid,
+          nickName: "提肛达人",
+          avatarUrl: "",
           gender: 0,
-          city: '',
-          province: '',
-          country: 'China',
-          language: 'zh_CN',
+          city: "",
+          province: "",
+          country: "China",
+          language: "zh_CN",
           totalSessions: 0,
           totalDuration: 0,
           streakDays: 0,
           lastTrainDate: null,
           createdAt: db.serverDate(),
-          lastLoginTime: db.serverDate()
-        }
-      })
-      
-      userData = {
-        _id: result._id,
-        openid,
-        unionid,
-        nickName: '提肛达人',
-        avatarUrl: '',
-        gender: 0,
-        city: '',
-        province: '',
-        country: 'China',
-        language: 'zh_CN',
-        totalSessions: 0,
-        totalDuration: 0,
-        streakDays: 0,
-        lastTrainDate: null
-      }
-    }
-    
-    return {
-      success: true,
-      data: userData
+          lastLoginTime: db.serverDate(),
+        },
+      });
+
+      console.log("新用户创建成功");
+
+      return {
+        success: true,
+        data: {
+          _id: result._id,
+          openid: openid,
+          nickName: "提肛达人",
+          avatarUrl: "",
+          totalSessions: 0,
+          totalDuration: 0,
+          streakDays: 0,
+        },
+        message: "注册成功",
+      };
     }
   } catch (err) {
-    console.error('登录失败:', err)
+    console.error("登录失败:", err);
     return {
       success: false,
-      error: err.message
-    }
+      error: err.message,
+      errCode: err.errCode,
+    };
   }
-}
+};

@@ -2,53 +2,45 @@
   <view class="train-container">
     <!-- 模式信息 -->
     <view class="mode-header">
-      <text class="mode-title">{{ modeInfo.name }}</text>
-      <text class="mode-subtitle">{{ modeInfo.desc }}</text>
+      <button class="train-back-btn" @click="handleBackNavigation">
+        <text class="train-back-icon">‹</text>
+      </button>
+      <view class="mode-copy">
+        <text class="mode-title">{{ modeInfo.name }}</text>
+        <text class="mode-subtitle">{{ modeInfo.desc }}</text>
+      </view>
+      <view class="voice-pill">语音开</view>
     </view>
-    
-    <!-- 臀部时钟 -->
+
+    <view class="voice-cue-slot">
+      <text v-if="voiceCueText" class="voice-cue-text">{{ voiceCueText }}</text>
+    </view>
+
+    <!-- 训练计时器 -->
     <view class="clock-section">
       <view class="butt-clock" :class="[currentPhase, { active: isPlaying }]">
-        <!-- 臀部轮廓 -->
-        <svg class="butt-svg" viewBox="0 0 200 200">
-          <!-- 左臀 -->
-          <ellipse 
-            class="butt-cheek left"
-            :class="{ contracting: currentPhase === 'contract' }"
-            cx="70" 
-            cy="100" 
-            rx="50" 
-            ry="70"
-            :style="buttStyle"
-          />
-          <!-- 右臀 -->
-          <ellipse 
-            class="butt-cheek right"
-            :class="{ contracting: currentPhase === 'contract' }"
-            cx="130" 
-            cy="100" 
-            rx="50" 
-            ry="70"
-            :style="buttStyle"
-          />
-          <!-- 中心线 -->
-          <path 
-            class="center-line"
-            d="M 100 60 Q 100 100 100 140"
-            stroke="rgba(255,255,255,0.6)"
-            stroke-width="3"
-            fill="none"
-            stroke-linecap="round"
-          />
-        </svg>
-        
-        <!-- 阶段指示器 -->
-        <view class="phase-indicator">
-          <text class="phase-text">{{ phaseText }}</text>
-          <text class="phase-timer">{{ formatTime(phaseTimeLeft) }}</text>
+        <view class="butt-shape" aria-hidden="true">
+          <view class="butt-figure">
+            <image class="butt-outline-layer" src="/static/images/training-outline.svg" mode="aspectFit" />
+            <image class="pelvic-muscle-layer" src="/static/images/training-muscle.svg" mode="aspectFit" />
+          </view>
         </view>
       </view>
-      
+
+      <view class="training-time-panel">
+        <view class="phase-indicator">
+          <text class="phase-kicker">本次训练时间</text>
+          <text class="phase-timer">{{ formatDuration(elapsedTime) }}</text>
+          <view class="phase-meta-row">
+            <view class="phase-status-pill">
+              <text class="phase-badge">{{ phaseText }}</text>
+              <text v-if="isPlaying" class="phase-countdown">{{ formatPhaseTime(phaseTimeLeft) }}</text>
+              <text v-else class="phase-waiting">待开始</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
       <!-- 计数显示 -->
       <view class="counter-display">
         <text class="counter-label">本次训练</text>
@@ -58,127 +50,156 @@
         </view>
       </view>
     </view>
-    
-    <!-- 控制按钮组 -->
+
     <view class="controls-section">
       <view class="controls-row">
-        <!-- 结束按钮 -->
-        <button 
-          class="control-btn secondary"
-          @click="stopTraining"
-        >
-          <text class="btn-icon">⏹</text>
-          <text class="btn-text">结束</text>
+        <button
+          :class="endHoldProgress > 0 ? 'control-btn secondary end-control active' : 'control-btn secondary end-control'"
+          @touchstart="startEndHold" @touchend="cancelEndHold" @touchcancel="cancelEndHold">
+          <view :class="endHoldProgress > 0 ? 'hold-ring active' : 'hold-ring'"
+            :style="endHoldProgress > 0 ? holdRingStyle : {}">
+            <text class="btn-icon stop-icon">■</text>
+          </view>
         </button>
-        
-        <!-- 播放/暂停按钮 -->
-        <button 
-          class="control-btn primary"
-          :class="{ playing: isPlaying }"
-          @click="togglePlay"
-        >
-          <text class="btn-icon-large">{{ isPlaying ? '⏸' : '▶' }}</text>
-          <text class="btn-text">{{ isPlaying ? '暂停' : '开始' }}</text>
+
+        <button class="control-btn primary" :class="{ started: hasTrainingStarted, playing: isPlaying }"
+          @click="togglePlay">
+          <view v-if="isPlaying" class="pause-mark">
+            <view class="pause-bar"></view>
+            <view class="pause-bar"></view>
+          </view>
+          <text v-else class="btn-icon-large">▶</text>
         </button>
-        
-        <!-- 指导按钮 -->
-        <button 
-          class="control-btn secondary"
-          @click="showGuide"
-        >
-          <text class="btn-icon">📹</text>
-          <text class="btn-text">指导</text>
+
+        <button class="control-btn secondary guide-control" @click="showGuide">
+          <text class="btn-icon guide-icon">i</text>
         </button>
-      </view>
-      
-      <!-- 进度条 -->
-      <view class="progress-section" v-if="totalTime > 0">
-        <text class="progress-label">训练进度</text>
-        <progress 
-          class="progress-bar"
-          :percent="(elapsedTime / totalTime) * 100"
-          activeColor="#4ECDC4"
-          backgroundColor="#E5E7EB"
-        />
-        <text class="progress-time">{{ formatTime(elapsedTime) }} / {{ formatTime(totalTime) }}</text>
       </view>
     </view>
-    
-    <!-- 指导视频弹窗 -->
-    <uni-modal 
-      v-if="showGuideModal"
-      title="动作指导"
-      :show-cancel="false"
-      @confirm="showGuideModal = false"
-    >
-      <view class="guide-content">
-        <video 
-          class="guide-video"
-          src="/static/video/guide.mp4"
-          :controls="true"
-          :autoplay="true"
-          :loop="true"
-        />
-        <view class="guide-tips">
-          <text class="tip-item">✓ 保持自然呼吸，不要憋气</text>
-          <text class="tip-item">✓ 收缩时感受肌肉收紧</text>
-          <text class="tip-item">✓ 放松时完全放松肌肉</text>
-          <text class="tip-item">✓ 找到正确的肌肉群</text>
+
+    <view v-if="showExitConfirmModal" class="exit-overlay">
+      <view class="exit-card" @click.stop>
+        <view class="exit-handle"></view>
+        <text class="exit-title">结束本次训练？</text>
+        <text class="exit-copy">当前训练正在进行。继续训练会回到计时，结束训练会保存已完成的时间和次数。</text>
+        <view class="exit-actions">
+          <button class="exit-btn secondary" @click="continueTraining">继续训练</button>
+          <button class="exit-btn danger" @click="confirmExitTraining">结束训练</button>
         </view>
       </view>
-    </uni-modal>
+    </view>
+
+    <view v-if="showFinishModal" class="finish-overlay">
+      <view class="finish-card">
+        <view class="finish-mark">
+          <text class="finish-mark-text">✓</text>
+        </view>
+        <text class="finish-title">训练完成</text>
+        <text class="finish-subtitle">本次节奏已记录，保持稳定比一次练很久更重要</text>
+
+        <view class="finish-stats">
+          <view class="finish-stat">
+            <text class="finish-value">{{ finishSummary.count }}</text>
+            <text class="finish-label">完成次数</text>
+          </view>
+          <view class="finish-divider"></view>
+          <view class="finish-stat">
+            <text class="finish-value">{{ finishSummary.duration }}</text>
+            <text class="finish-label">本次时长</text>
+          </view>
+        </view>
+
+        <button class="finish-btn" @click="confirmFinish">返回首页</button>
+      </view>
+    </view>
+
+    <!-- 指导视频弹窗 -->
+    <view v-if="showGuideModal" class="modal-overlay" @click="showGuideModal = false">
+      <view class="modal-content" @click.stop>
+        <view class="modal-header">
+          <text class="modal-title">动作指导</text>
+          <text class="modal-close" @click="showGuideModal = false">✕</text>
+        </view>
+        <view class="modal-body">
+          <video class="guide-video" src="/static/video/guide.mp4" :controls="true" :autoplay="true" :loop="true" />
+          <view class="guide-tips">
+            <text class="tip-item">✓ 保持自然呼吸，不要憋气</text>
+            <text class="tip-item">✓ 收缩时感受肌肉收紧</text>
+            <text class="tip-item">✓ 放松时完全放松肌肉</text>
+            <text class="tip-item">✓ 找到正确的肌肉群</text>
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'uni-app/composables/router'
+import { ref, computed, onUnmounted } from 'vue'
+import { onBackPress, onUnload } from '@dcloudio/uni-app'
 import { useUserStore } from '@/store/user'
+import {
+  TRAINING_MODES,
+  advancePhase,
+  createTrainingSession,
+  formatElapsedSeconds,
+  formatPhaseMilliseconds,
+  getEndHoldProgress,
+  getPhaseVoiceText,
+  isEndHoldComplete,
+  pauseTraining,
+  shouldPromptBeforeLeavingTraining,
+  startTraining,
+  tickElapsedSecond,
+  tickPhase
+} from '@/utils/training-session';
 
-const route = useRoute()
 const userStore = useUserStore()
-
-// 模式配置
-const modeConfig = {
-  normal: {
-    name: '普通模式',
-    contractTime: 3000,
-    relaxTime: 3000,
-    phases: ['contract', 'relax'] as const
-  },
-  advanced: {
-    name: '进阶模式',
-    contractTime: 5000,
-    relaxTime: 3000,
-    phases: ['contract', 'relax'] as const
-  },
-  king: {
-    name: '王者模式',
-    contractTime: 5000,
-    relaxTime: 2000,
-    quickContractTime: 1000,
-    quickContractCount: 3,
-    phases: ['contract', 'relax', 'quick-contract'] as const
-  }
-}
-
-const mode = (route.query.mode as 'normal' | 'advanced' | 'king') || 'normal'
-const modeInfo = modeConfig[mode]
-
-// 状态
-const isPlaying = ref(false)
-const currentPhase = ref<'contract' | 'relax' | 'quick-contract'>('relax')
-const phaseTimeLeft = ref(0)
-const counter = ref(0)
-const elapsedTime = ref(0)
-const totalTime = ref(600) // 默认 10 分钟，单位秒
-const showGuideModal = ref(false)
 
 let timer: any = null
 let phaseTimer: any = null
-let tts: any = null
+let endHoldTimer: any = null
+let endHoldStartTime = 0
+let elapsedTimerBaseTime = 0
+let elapsedTimerBaseSeconds = 0
+const END_HOLD_REQUIRED_MS = 1200
 
-// 计算属性
+const getModeFromUrl = () => {
+  const pages = getCurrentPages()
+  if (pages.length > 0) {
+    const currentPage = pages[pages.length - 1] as any
+    return (currentPage.options?.mode as 'normal' | 'advanced' | 'king') || 'normal'
+  }
+  return 'normal'
+}
+
+const routeMode = getModeFromUrl()
+const mode = TRAINING_MODES[routeMode] ? routeMode : 'normal'
+const modeInfo = TRAINING_MODES[mode]
+const session = ref(createTrainingSession(mode))
+const showGuideModal = ref(false)
+const showFinishModal = ref(false)
+const showExitConfirmModal = ref(false)
+const endHoldProgress = ref(0)
+const voiceCueText = ref('')
+const finishSummary = ref({
+  count: 0,
+  duration: '00:00'
+})
+let hasSavedCurrentSession = false
+let allowPageLeave = false
+
+const isPlaying = computed(() => session.value.isPlaying)
+const currentPhase = computed(() => session.value.currentPhase)
+const phaseTimeLeft = computed(() => session.value.phaseTimeLeftMs)
+const counter = computed(() => session.value.counter)
+const elapsedTime = computed(() => session.value.elapsedSeconds)
+const hasTrainingStarted = computed(() => currentPhase.value !== 'ready' || elapsedTime.value > 0)
+const holdRingStyle = computed(() => ({
+  background: `conic-gradient(#ff826d ${endHoldProgress.value}%, #eef1f3 ${endHoldProgress.value}% 100%)`
+}))
+const endHoldLabel = computed(() => (endHoldProgress.value > 0 ? `${endHoldProgress.value}%` : '长按'))
+
 const phaseText = computed(() => {
   switch (currentPhase.value) {
     case 'contract':
@@ -192,267 +213,529 @@ const phaseText = computed(() => {
   }
 })
 
-const buttStyle = computed(() => {
-  if (currentPhase.value === 'contract' || currentPhase.value === 'quick-contract') {
-    return {
-      transform: 'scale(0.9)',
-      transition: 'transform 0.3s ease'
-    }
-  }
-  return {
-    transform: 'scale(1)',
-    transition: 'transform 0.3s ease'
-  }
-})
-
-// TTS 语音
 const speak = (text: string) => {
-  if (tts) {
-    tts.speak({
-      text: text,
-      success: () => {},
-      fail: (err: any) => console.error('TTS 失败:', err)
-    })
-  } else {
-    // 降级方案：使用 uni.playVoice
-    uni.showToast({
-      title: text,
-      icon: 'none',
-      duration: 2000
-    })
-  }
+  voiceCueText.value = text
 }
 
-// 相位循环
-const runPhase = () => {
-  if (!isPlaying.value) return
-  
-  const phases = modeInfo.phases
-  const currentIndex = phases.indexOf(currentPhase.value)
-  const nextIndex = (currentIndex + 1) % phases.length
-  const nextPhase = phases[nextIndex]
-  
-  // 更新计数
-  if (currentPhase.value === 'contract') {
-    counter.value += 1
-  }
-  
-  // 切换到下一阶段
-  currentPhase.value = nextPhase
-  
-  // 设置下一阶段时间
-  switch (nextPhase) {
-    case 'contract':
-      phaseTimeLeft.value = modeInfo.contractTime
-      speak('收紧臀部，保持呼吸')
-      break
-    case 'relax':
-      phaseTimeLeft.value = modeInfo.relaxTime
-      speak('放松，深呼吸')
-      break
-    case 'quick-contract':
-      phaseTimeLeft.value = modeInfo.quickContractTime! * modeInfo.quickContractCount!
-      speak('快速收缩，三次')
-      break
-  }
-  
-  // 倒计时
+const clearTimers = () => {
+  clearInterval(timer)
+  clearInterval(phaseTimer)
+  timer = null
+  phaseTimer = null
+  elapsedTimerBaseTime = 0
+  elapsedTimerBaseSeconds = session.value.elapsedSeconds
+}
+
+const clearEndHold = () => {
+  clearInterval(endHoldTimer)
+  endHoldTimer = null
+  endHoldStartTime = 0
+  endHoldProgress.value = 0
+}
+
+const runPhaseTimer = () => {
+  clearInterval(phaseTimer)
   phaseTimer = setInterval(() => {
-    phaseTimeLeft.value -= 100
-    if (phaseTimeLeft.value <= 0) {
-      clearInterval(phaseTimer)
-      runPhase()
+    if (!session.value.isPlaying) return
+
+    const tickedSession = tickPhase(session.value, 100)
+    if (tickedSession.phaseTimeLeftMs > 0) {
+      session.value = tickedSession
+      return
     }
+
+    session.value = advancePhase(tickedSession)
+    speak(getPhaseVoiceText(session.value.currentPhase))
   }, 100)
 }
 
-// 开始/暂停
-const togglePlay = () => {
-  isPlaying.value = !isPlaying.value
-  
-  if (isPlaying.value) {
-    // 开始训练
-    if (currentPhase.value === 'relax' && phaseTimeLeft.value === 0) {
-      // 第一次开始
-      currentPhase.value = 'contract'
-      phaseTimeLeft.value = modeInfo.contractTime
-      speak('准备，开始收紧')
-      runPhase()
-    } else {
-      // 继续暂停
-      runPhase()
-    }
-    
-    // 总计时
-    timer = setInterval(() => {
-      elapsedTime.value += 1
-      if (elapsedTime.value >= totalTime.value) {
-        stopTraining()
-      }
-    }, 1000)
-  } else {
-    // 暂停
-    clearInterval(timer)
-    clearInterval(phaseTimer)
-    speak('已暂停')
-  }
-}
-
-// 结束训练
-const stopTraining = () => {
-  isPlaying.value = false
+const runElapsedTimer = () => {
   clearInterval(timer)
-  clearInterval(phaseTimer)
-  
-  // 保存训练数据
-  if (elapsedTime.value > 0) {
-    userStore.updateTrainStats(elapsedTime.value)
-  }
-  
-  uni.showModal({
-    title: '训练结束',
-    content: `本次训练 ${counter.value} 次，时长 ${formatTime(elapsedTime.value)}`,
-    showCancel: false,
-    success: () => {
-      uni.navigateBack()
+  elapsedTimerBaseTime = Date.now()
+  elapsedTimerBaseSeconds = session.value.elapsedSeconds
+
+  timer = setInterval(() => {
+    if (!session.value.isPlaying) return
+
+    const measuredElapsedSeconds = elapsedTimerBaseSeconds + Math.floor((Date.now() - elapsedTimerBaseTime) / 1000)
+    const deltaSeconds = measuredElapsedSeconds - session.value.elapsedSeconds
+    if (deltaSeconds <= 0) return
+
+    session.value = tickElapsedSecond(session.value, deltaSeconds)
+    if (session.value.elapsedSeconds >= session.value.totalSeconds) {
+      stopTraining()
     }
-  })
+  }, 200)
 }
 
-// 显示指导
+const togglePlay = () => {
+  if (session.value.isPlaying) {
+    session.value = pauseTraining(session.value)
+    clearTimers()
+    speak('已暂停')
+    return
+  }
+
+  session.value = startTraining(session.value)
+  speak(getPhaseVoiceText(session.value.currentPhase))
+  runPhaseTimer()
+  runElapsedTimer()
+}
+
+const stopTraining = () => {
+  if (showFinishModal.value) return
+
+  session.value = pauseTraining(session.value)
+  clearTimers()
+  voiceCueText.value = ''
+
+  if (session.value.elapsedSeconds > 0 && !hasSavedCurrentSession) {
+    userStore.updateTrainStats(session.value.elapsedSeconds)
+    hasSavedCurrentSession = true
+  }
+
+  finishSummary.value = {
+    count: session.value.counter,
+    duration: formatDuration(session.value.elapsedSeconds)
+  }
+  showFinishModal.value = true
+}
+
+const startEndHold = () => {
+  if (showFinishModal.value) return
+
+  clearInterval(endHoldTimer)
+  endHoldStartTime = Date.now()
+  endHoldProgress.value = 0
+  endHoldTimer = setInterval(() => {
+    const heldMs = Date.now() - endHoldStartTime
+    endHoldProgress.value = getEndHoldProgress(heldMs, END_HOLD_REQUIRED_MS)
+
+    if (isEndHoldComplete(heldMs, END_HOLD_REQUIRED_MS)) {
+      clearEndHold()
+      stopTraining()
+    }
+  }, 40)
+}
+
+const cancelEndHold = () => {
+  if (!endHoldTimer) return
+  clearEndHold()
+}
+
 const showGuide = () => {
   showGuideModal.value = true
 }
 
-// 时间格式化
-const formatTime = (ms: number) => {
-  const totalSeconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+const confirmFinish = () => {
+  allowPageLeave = true
+  showFinishModal.value = false
+  uni.reLaunch({
+    url: '/pages/index/index'
+  })
 }
 
-// 生命周期
-onMounted(() => {
-  // 初始化 TTS
-  // @ts-ignore
-  if (uni.createInnerAudioContext) {
-    // 检查是否有 TTS 插件
-    // @ts-ignore
-    tts = uni.requireNativePlugin('tts')
+const leaveTrainingPage = () => {
+  allowPageLeave = true
+  uni.navigateBack({
+    delta: 1,
+    fail: () => {
+      uni.reLaunch({
+        url: '/pages/index/index'
+      })
+    }
+  })
+}
+
+const requestExitTraining = () => {
+  if (showFinishModal.value) return true
+  if (!shouldPromptBeforeLeavingTraining(session.value)) return false
+  showGuideModal.value = false
+  showExitConfirmModal.value = true
+  return true
+}
+
+const handleBackNavigation = () => {
+  if (requestExitTraining()) return
+  leaveTrainingPage()
+}
+
+const continueTraining = () => {
+  showExitConfirmModal.value = false
+}
+
+const confirmExitTraining = () => {
+  showExitConfirmModal.value = false
+  stopTraining()
+}
+
+const formatPhaseTime = (ms: number) => formatPhaseMilliseconds(ms)
+const formatDuration = (seconds: number) => formatElapsedSeconds(seconds)
+
+onBackPress(() => {
+  if (allowPageLeave) return false
+  return requestExitTraining()
+})
+
+onUnload(() => {
+  if (!allowPageLeave && session.value.elapsedSeconds > 0 && !hasSavedCurrentSession) {
+    userStore.updateTrainStats(session.value.elapsedSeconds)
+    hasSavedCurrentSession = true
   }
 })
 
 onUnmounted(() => {
-  clearInterval(timer)
-  clearInterval(phaseTimer)
+  clearTimers()
+  clearEndHold()
 })
 </script>
 
 <style lang="scss" scoped>
 .train-container {
   min-height: 100vh;
-  background: linear-gradient(180deg, #E8F4F8 0%, #F5F7FA 100%);
-  padding: $spacing-lg;
+  background: #fbfaf8;
+  padding: calc(env(safe-area-inset-top) + 18rpx) 32rpx calc(env(safe-area-inset-bottom) + 48rpx);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .mode-header {
+  display: grid;
+  grid-template-columns: 96rpx 1fr 132rpx;
+  align-items: start;
+  min-height: 104rpx;
+  margin-bottom: 8rpx;
+}
+
+.train-back-btn {
+  grid-column: 1;
+  justify-self: start;
+  width: 72rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  padding: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1rpx solid #edf0f2;
+  box-shadow: 0 8rpx 22rpx rgba(22, 30, 42, 0.06);
+}
+
+.train-back-btn::after {
+  border: none;
+}
+
+.train-back-icon {
+  display: block;
+  color: #172232;
+  font-size: 58rpx;
+  line-height: 66rpx;
+  font-weight: 500;
+}
+
+.mode-copy {
+  grid-column: 2;
   text-align: center;
-  margin-bottom: $spacing-xl;
+  min-width: 0;
 }
 
 .mode-title {
   display: block;
-  font-size: $font-2xl;
+  font-size: 40rpx;
   font-weight: 700;
-  color: $primary-color;
+  color: #172232;
   margin-bottom: $spacing-xs;
 }
 
 .mode-subtitle {
   display: block;
-  font-size: $font-md;
-  color: $text-secondary;
+  font-size: 24rpx;
+  color: #98a1ad;
+}
+
+.voice-pill {
+  justify-self: end;
+  grid-column: 3;
+  margin-top: 64rpx;
+  min-width: 112rpx;
+  height: 58rpx;
+  line-height: 58rpx;
+  border-radius: $radius-full;
+  background-color: #fff4cc;
+  color: #9a6a00;
+  font-size: 26rpx;
+  font-weight: 600;
+  text-align: center;
+}
+
+.voice-cue-slot {
+  height: 52rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 18rpx;
+  box-sizing: border-box;
+}
+
+.voice-cue-text {
+  max-width: 520rpx;
+  min-height: 52rpx;
+  line-height: 52rpx;
+  padding: 0 38rpx;
+  border-radius: 999rpx;
+  background: #17342f;
+  color: #e9fff8;
+  font-size: 30rpx;
+  font-weight: 800;
+  text-align: center;
+  box-shadow: 0 14rpx 30rpx rgba(22, 185, 157, 0.18);
+}
+
+.exit-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1150;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 28rpx calc(env(safe-area-inset-bottom) + 28rpx);
+  background: rgba(16, 27, 40, 0.46);
+  box-sizing: border-box;
+}
+
+.exit-card {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 22rpx;
+  padding: 26rpx 34rpx 32rpx;
+  box-shadow: 0 28rpx 86rpx rgba(11, 18, 32, 0.22);
+  box-sizing: border-box;
+}
+
+.exit-handle {
+  width: 72rpx;
+  height: 8rpx;
+  border-radius: 999rpx;
+  background: #dde3e8;
+  margin: 0 auto 26rpx;
+}
+
+.exit-title {
+  display: block;
+  font-size: 38rpx;
+  font-weight: 900;
+  color: #172232;
+  margin-bottom: 14rpx;
+  text-align: center;
+}
+
+.exit-copy {
+  display: block;
+  font-size: 26rpx;
+  color: #6f7a88;
+  line-height: 1.7;
+  text-align: center;
+  margin-bottom: 30rpx;
+}
+
+.exit-actions {
+  display: flex;
+  gap: 18rpx;
+}
+
+.exit-btn {
+  flex: 1;
+  height: 82rpx;
+  line-height: 82rpx;
+  border-radius: 999rpx;
+  padding: 0;
+  font-size: 27rpx;
+  font-weight: 800;
+}
+
+.exit-btn::after {
+  border: none;
+}
+
+.exit-btn.secondary {
+  background: #f1f4f6;
+  color: #334155;
+}
+
+.exit-btn.danger {
+  background: #ff826d;
+  color: #ffffff;
 }
 
 .clock-section {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: $spacing-2xl;
+  padding-top: 28rpx;
+  margin-bottom: 24rpx;
 }
 
 .butt-clock {
-  width: 400rpx;
-  height: 400rpx;
-  border-radius: $radius-full;
-  background: linear-gradient(135deg, #FFB6C1 0%, #FFC0CB 100%);
-  box-shadow: $shadow-xl;
+  width: 520rpx;
+  height: 350rpx;
   position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: $spacing-lg;
-  
+  margin-bottom: 8rpx;
+  transition: transform $transition-normal, box-shadow $transition-normal;
+
   &.active {
-    box-shadow: 0 0 60rpx rgba($primary-color, 0.4);
+    transform: translateY(-2rpx);
+  }
+
+  &.relax,
+  &.ready {
+    .pelvic-muscle-layer {
+      transform: translateY(10px) scaleX(1.02) scaleY(0.96);
+    }
+  }
+
+  &.contract,
+  &.quick-contract {
+    .pelvic-muscle-layer {
+      transform: translateY(-18px) scaleX(0.78) scaleY(1.08);
+    }
   }
 }
 
-.butt-svg {
-  width: 300rpx;
-  height: 300rpx;
+.butt-shape {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 520rpx;
+  height: 350rpx;
+  transform: translate(-50%, -50%);
 }
 
-.butt-cheek {
-  fill: #FFB6C1;
-  transition: all 0.3s ease;
-  
-  &.contracting {
-    fill: #FF9EAA;
-  }
+.butt-figure {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 440rpx;
+  height: 440rpx;
+  transform: translate(-50%, -50%);
 }
 
-.center-line {
-  opacity: 0.6;
+.butt-outline-layer,
+.pelvic-muscle-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 440rpx;
+  height: 440rpx;
+}
+
+.butt-outline-layer {
+  opacity: 0.94;
+}
+
+.pelvic-muscle-layer {
+  transform-origin: center;
+  transition: transform 0.42s ease;
+}
+
+.training-time-panel {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 18rpx;
 }
 
 .phase-indicator {
-  position: absolute;
-  bottom: 40rpx;
   text-align: center;
 }
 
-.phase-text {
+.phase-kicker {
   display: block;
-  font-size: $font-lg;
+  font-size: 25rpx;
+  color: #8c96a3;
+  margin-bottom: 8rpx;
   font-weight: 600;
-  color: $white;
-  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
-  margin-bottom: $spacing-xs;
 }
 
 .phase-timer {
   display: block;
-  font-size: $font-2xl;
+  font-size: 72rpx;
   font-weight: 700;
-  color: $white;
-  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
+  color: #172232;
+  line-height: 1;
+}
+
+.phase-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14rpx;
+  margin-top: 24rpx;
+}
+
+.phase-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14rpx;
+  min-width: 220rpx;
+  height: 46rpx;
+}
+
+.phase-badge {
+  width: 86rpx;
+  height: 46rpx;
+  line-height: 46rpx;
+  padding: 0;
+  border-radius: 999rpx;
+  background: #ffc329;
+  color: #172232;
+  font-size: 28rpx;
+  font-weight: 900;
+  text-align: center;
+}
+
+.phase-countdown {
+  width: 96rpx;
+  height: 46rpx;
+  line-height: 46rpx;
+  color: #788391;
+  font-size: 26rpx;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  text-align: left;
+}
+
+.phase-waiting {
+  height: 46rpx;
+  line-height: 46rpx;
+  padding: 0 22rpx;
+  color: #788391;
+  font-size: 26rpx;
+  font-weight: 700;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .counter-display {
-  background-color: $card-bg;
-  border-radius: $radius-lg;
-  padding: $spacing-lg $spacing-2xl;
-  box-shadow: $shadow-md;
+  background-color: $white;
+  border-radius: 14rpx;
+  padding: 22rpx 58rpx;
+  margin-top: 36rpx;
+  box-shadow: 0 12rpx 30rpx rgba(15, 23, 42, 0.12);
   text-align: center;
 }
 
 .counter-label {
   display: block;
-  font-size: $font-sm;
-  color: $text-secondary;
-  margin-bottom: $spacing-xs;
+  font-size: 26rpx;
+  color: #7d8794;
+  margin-bottom: 6rpx;
 }
 
 .counter-value {
@@ -462,28 +745,30 @@ onUnmounted(() => {
 }
 
 .count {
-  font-size: 80rpx;
+  font-size: 64rpx;
   font-weight: 700;
-  color: $primary-color;
+  color: #ffc329;
   line-height: 1;
 }
 
 .count-unit {
-  font-size: $font-lg;
-  color: $text-regular;
-  margin-left: $spacing-sm;
+  font-size: 30rpx;
+  color: #596474;
+  margin-left: 10rpx;
 }
 
 .controls-section {
-  margin-bottom: $spacing-lg;
+  margin-top: auto;
+  padding: 18rpx 8rpx calc(env(safe-area-inset-bottom) + 24rpx);
+  overflow: visible;
 }
 
 .controls-row {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: $spacing-lg;
-  margin-bottom: $spacing-lg;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 18rpx;
+  min-height: 216rpx;
 }
 
 .control-btn {
@@ -491,77 +776,279 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: $white;
+  background-color: transparent;
   border: none;
-  border-radius: $radius-lg;
-  padding: $spacing-md $spacing-lg;
-  box-shadow: $shadow-md;
+  border-radius: $radius-full;
+  padding: 0;
+  box-shadow: none;
+  box-sizing: border-box;
+  line-height: 1;
+  overflow: visible;
   transition: all $transition-normal;
-  
+
   &:active {
     transform: scale(0.95);
   }
-  
+
   &.primary {
-    width: 160rpx;
-    height: 160rpx;
+    width: 166rpx;
+    height: 166rpx;
     border-radius: $radius-full;
-    background: linear-gradient(135deg, $primary-color 0%, $primary-dark 100%);
-    box-shadow: 0 8rpx 20rpx rgba($primary-color, 0.4);
-    
+    background: #fff4f2;
+    box-shadow: 0 18rpx 38rpx rgba(217, 75, 61, 0.1);
+
+    &.started,
     &.playing {
-      background: linear-gradient(135deg, $accent-color 0%, #E57373 100%);
-      box-shadow: 0 8rpx 20rpx rgba($accent-color, 0.4);
+      background: #ffc329;
+      box-shadow: 0 18rpx 38rpx rgba(255, 195, 41, 0.28);
+    }
+
+    &.playing {
+      background: #ffc329;
+      box-shadow: 0 18rpx 38rpx rgba(255, 195, 41, 0.28);
     }
   }
-  
+
   &.secondary {
-    width: 120rpx;
-    height: 120rpx;
+    width: 160rpx;
+    min-height: 168rpx;
+    background: transparent;
   }
+}
+
+.control-btn::after {
+  border: none;
 }
 
 .btn-icon {
-  font-size: 40rpx;
-  margin-bottom: $spacing-xs;
+  width: 70rpx;
+  height: 70rpx;
+  line-height: 70rpx;
+  border-radius: $radius-full;
+  border: none;
+  color: #202b38;
+  font-size: 34rpx;
+  text-align: center;
+  background: #ffffff;
+}
+
+.hold-ring {
+  width: 92rpx;
+  height: 92rpx;
+  border-radius: $radius-full;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-sizing: border-box;
+  margin-bottom: 12rpx;
+  background: transparent;
+  transition: width 0.18s ease, height 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.hold-ring.active {
+  padding: 8rpx;
+  box-shadow: 0 14rpx 30rpx rgba(255, 130, 109, 0.14);
+}
+
+.stop-icon {
+  font-size: 28rpx;
+  color: #d94b3d;
+  background: #fff4f2;
+  box-shadow: 0 12rpx 26rpx rgba(217, 75, 61, 0.08);
+}
+
+.guide-icon {
+  font-size: 44rpx;
+  font-weight: 700;
+  box-shadow: 0 12rpx 26rpx rgba(24, 35, 51, 0.08);
 }
 
 .btn-icon-large {
-  font-size: 60rpx;
-  margin-bottom: $spacing-xs;
+  font-size: 66rpx;
+  margin-bottom: 8rpx;
+  color: #d94b3d;
+  line-height: 1;
+}
+
+.primary.started .btn-icon-large {
+  color: #172232;
+}
+
+.pause-mark {
+  width: 72rpx;
+  height: 72rpx;
+  margin-bottom: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18rpx;
+}
+
+.pause-bar {
+  width: 12rpx;
+  height: 52rpx;
+  border-radius: 999rpx;
+  background: #172232;
 }
 
 .btn-text {
-  font-size: $font-xs;
-  color: $white;
-  font-weight: 500;
+  font-size: 26rpx;
+  color: #8e98a7;
+  font-weight: 600;
 }
 
-.progress-section {
-  background-color: $card-bg;
-  border-radius: $radius-lg;
-  padding: $spacing-md $spacing-lg;
-  box-shadow: $shadow-sm;
+.primary .btn-text {
+  color: #172232;
 }
 
-.progress-label {
+.hold-hint {
   display: block;
-  font-size: $font-sm;
-  color: $text-regular;
-  margin-bottom: $spacing-sm;
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: #b0bac5;
+  line-height: 1;
+  min-height: 22rpx;
 }
 
-.progress-bar {
+.end-control,
+.guide-control {
+  justify-content: center;
+}
+
+.end-control.active {
+  transform: translateY(-14rpx) scale(1.08);
+}
+
+.end-control.active .hold-ring {
+  width: 118rpx;
+  height: 118rpx;
+  box-shadow: 0 20rpx 42rpx rgba(255, 130, 109, 0.28);
+}
+
+.end-control.active .btn-icon {
+  width: 88rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+}
+
+.guide-control .btn-icon {
+  margin-bottom: 14rpx;
+}
+
+.end-control .btn-text,
+.guide-control .btn-text {
+  color: #596474;
+}
+
+.finish-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 44rpx;
+  background: rgba(16, 27, 40, 0.48);
+  box-sizing: border-box;
+}
+
+.finish-card {
   width: 100%;
-  height: 12rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 44rpx 36rpx 36rpx;
+  box-sizing: border-box;
+  text-align: center;
+  box-shadow: 0 30rpx 90rpx rgba(11, 18, 32, 0.22);
 }
 
-.progress-time {
+.finish-mark {
+  width: 108rpx;
+  height: 108rpx;
+  border-radius: $radius-full;
+  background: #ffc329;
+  margin: 0 auto 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 16rpx 34rpx rgba(255, 195, 41, 0.26);
+}
+
+.finish-mark-text {
+  color: #172232;
+  font-size: 58rpx;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.finish-title {
   display: block;
-  font-size: $font-xs;
-  color: $text-secondary;
-  text-align: right;
-  margin-top: $spacing-xs;
+  font-size: 42rpx;
+  font-weight: 800;
+  color: #172232;
+  margin-bottom: 14rpx;
+}
+
+.finish-subtitle {
+  display: block;
+  font-size: 25rpx;
+  line-height: 1.6;
+  color: #8b95a1;
+  margin-bottom: 30rpx;
+}
+
+.finish-stats {
+  display: flex;
+  align-items: center;
+  background: #f7faf9;
+  border-radius: 12rpx;
+  padding: 28rpx 12rpx;
+  margin-bottom: 34rpx;
+}
+
+.finish-stat {
+  flex: 1;
+  min-width: 0;
+}
+
+.finish-value {
+  display: block;
+  font-size: 38rpx;
+  font-weight: 800;
+  color: #172232;
+  margin-bottom: 8rpx;
+}
+
+.finish-label {
+  display: block;
+  font-size: 22rpx;
+  color: #8b95a1;
+}
+
+.finish-divider {
+  width: 1rpx;
+  height: 58rpx;
+  background: #e3e8ec;
+}
+
+.finish-btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 999rpx;
+  background: #182333;
+  color: $white;
+  font-size: 28rpx;
+  font-weight: 800;
+  padding: 0;
+}
+
+.finish-btn::after {
+  border: none;
 }
 
 .guide-content {
@@ -584,5 +1071,53 @@ onUnmounted(() => {
 .tip-item {
   font-size: $font-sm;
   color: $text-regular;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: $white;
+  border-radius: $radius-lg;
+  width: 90%;
+  max-width: 600rpx;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: $shadow-xl;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-lg;
+  border-bottom: 1rpx solid $border-light;
+}
+
+.modal-title {
+  font-size: $font-lg;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.modal-close {
+  font-size: 40rpx;
+  color: $text-secondary;
+  cursor: pointer;
+  padding: $spacing-xs;
+}
+
+.modal-body {
+  padding: $spacing-lg;
 }
 </style>

@@ -1,4 +1,8 @@
 import { defineStore } from 'pinia'
+import {
+  DEFAULT_AVATAR,
+  DEFAULT_NICKNAME
+} from '@/utils/user-profile'
 
 interface UserInfo {
   openid?: string
@@ -32,25 +36,44 @@ export const useUserStore = defineStore('user', {
   
   getters: {
     displayName: (state) => state.userInfo?.nickName || '游客用户',
-    displayAvatar: (state) => state.userInfo?.avatarUrl || '/static/images/default-avatar.png'
+    displayAvatar: (state) => state.userInfo?.avatarUrl || DEFAULT_AVATAR
   },
   
   actions: {
     async login() {
       try {
-        const { code } = await uni.login({ provider: 'weixin' })
+        if (!wx.cloud) {
+          throw new Error('云开发未初始化')
+        }
         
-        const result = await uni.cloud.callFunction({
-          name: 'login',
-          data: { code }
+        const { code } = await uni.login({ provider: 'weixin' })
+        console.log('微信登录 code:', code)
+        
+        const result: any = await new Promise((resolve, reject) => {
+          wx.cloud.callFunction({
+            name: 'login',
+            data: { code },
+            success: (res: any) => {
+              console.log('云函数调用成功:', res)
+              resolve(res)
+            },
+            fail: (err: any) => {
+              console.error('云函数调用失败:', err)
+              reject(err)
+            }
+          })
         })
         
-        if (result.result.success) {
+        console.log('云函数返回:', result)
+        
+        if (result.result?.success) {
           const userData = result.result.data
+          console.log('用户数据:', userData)
+          
           this.userInfo = {
             openid: userData.openid,
-            nickName: userData.nickName || '提肛达人',
-            avatarUrl: userData.avatarUrl || '/static/images/default-avatar.png',
+            nickName: userData.nickName || DEFAULT_NICKNAME,
+            avatarUrl: userData.avatarUrl || DEFAULT_AVATAR,
             gender: userData.gender,
             city: userData.city,
             province: userData.province,
@@ -62,9 +85,14 @@ export const useUserStore = defineStore('user', {
           this.totalDuration = userData.totalDuration || 0
           this.streakDays = userData.streakDays || 0
           this.lastTrainDate = userData.lastTrainDate || null
+          
+          console.log('登录成功，用户信息:', this.userInfo)
+        } else {
+          console.error('登录失败:', result.result?.error)
+          throw new Error(result.result?.error || '登录失败')
         }
-      } catch (error) {
-        console.error('登录失败:', error)
+      } catch (error: any) {
+        console.error('登录异常:', error)
         throw error
       }
     },
@@ -100,17 +128,62 @@ export const useUserStore = defineStore('user', {
       if (!this.isLoggedIn) return
       
       try {
-        await uni.cloud.callFunction({
-          name: 'updateUserStats',
-          data: {
-            totalSessions: this.totalSessions,
-            totalDuration: this.totalDuration,
-            streakDays: this.streakDays,
-            lastTrainDate: this.lastTrainDate
-          }
+        await new Promise((resolve, reject) => {
+          wx.cloud.callFunction({
+            name: 'updateUserStats',
+            data: {
+              totalSessions: this.totalSessions,
+              totalDuration: this.totalDuration,
+              streakDays: this.streakDays,
+              lastTrainDate: this.lastTrainDate
+            },
+            success: resolve,
+            fail: reject
+          })
         })
       } catch (error) {
         console.error('同步数据失败:', error)
+      }
+    },
+
+    async syncProfileToCloud(profile: UserInfo | null) {
+      if (!this.isLoggedIn || !profile) return
+
+      try {
+        await new Promise((resolve, reject) => {
+          wx.cloud.callFunction({
+            name: 'updateUserProfile',
+            data: {
+              nickName: profile.nickName || DEFAULT_NICKNAME,
+              avatarUrl: profile.avatarUrl || DEFAULT_AVATAR,
+              gender: profile.gender ?? 0,
+              city: profile.city || '',
+              province: profile.province || '',
+              country: profile.country || '',
+              language: profile.language || ''
+            },
+            success: resolve,
+            fail: reject
+          })
+        })
+      } catch (error) {
+        console.error('同步用户资料失败:', error)
+      }
+    },
+
+    setUserProfile(profile: Partial<UserInfo>) {
+      if (!this.userInfo) {
+        this.userInfo = {
+          nickName: DEFAULT_NICKNAME,
+          avatarUrl: DEFAULT_AVATAR
+        }
+      }
+
+      this.userInfo = {
+        ...this.userInfo,
+        ...profile,
+        nickName: profile.nickName || this.userInfo.nickName || DEFAULT_NICKNAME,
+        avatarUrl: profile.avatarUrl || this.userInfo.avatarUrl || DEFAULT_AVATAR
       }
     }
   },
