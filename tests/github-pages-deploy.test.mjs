@@ -41,3 +41,10 @@ test('documents runnable local H5 preview commands in package scripts', () => {
   assert.match(packageConfig.scripts['preview:h5'], /npm run build:h5/)
   assert.match(packageConfig.scripts['preview:h5'], /vite preview/)
 })
+
+test('declares the H5 platform plugin so uni can inject browser mount code', () => {
+  assert.equal(
+    packageConfig.dependencies['@dcloudio/uni-h5'],
+    packageConfig.dependencies['@dcloudio/uni-app']
+  )
+})
